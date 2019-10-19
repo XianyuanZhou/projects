@@ -1,0 +1,1543 @@
+---
+title: "Untitled"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r Set Up}
+#setup
+rm(list = ls())
+setwd("/Users/hayleychou/Downloads/R/Return policy change")
+# setwd("Cloud/project")
+
+# install.packages("readstata13")
+# 
+# install.packages("stargazer")
+# 
+# install.packages("ggplot2")
+# 
+# install.packages("VIF")
+# 
+# install.packages("ggeffects")
+# 
+# install.packages("MASS")
+# 
+# install.packages("lmtest")
+# 
+# install.packages("multiwayvcov")
+# 
+# install.packages("sandwich")
+# 
+# install.packages("usdm")
+
+library(stargazer)
+library(readstata13)
+library(ggplot2)
+library(VIF)
+library(ggeffects)
+library(MASS)
+library(lmtest)
+library(multiwayvcov)
+library(sandwich)
+library(usdm)
+
+# #install.packages("aod")
+# library(aod)
+# #install.packages("mfx")
+# library(mfx)
+# #install.packages("aer")
+# library(aer)
+# #install.packages("QuantPsyc")
+# library(QuantPsyc)
+```
+```{r Load data}
+#Load data
+
+bm = read.dta13("BM store monthly sales-returns.dta")
+stargazer(bm, type="text", median=TRUE, iqr=TRUE,digits=1, title="BM store monthly sales-returns") 
+
+bm_pc = read.dta13("BM store monthly prod_cat sales-returns.dta")
+stargazer(bm_pc, type="text", median=TRUE, iqr=TRUE,digits=1, title="BM store monthly prod_cat sales-returns") 
+
+ol = read.dta13("Online store daily sales-returns.dta")
+stargazer(ol, type="text", median=TRUE, iqr=TRUE,digits=1, title="Online store daily sales-returns") 
+
+ol_pc = read.dta13("Online store daily prod_cat sales-returns.dta")
+stargazer(ol_pc, type="text", median=TRUE, iqr=TRUE,digits=1, title="Online store daily prod_cat sales-returns") 
+
+```
+#Plot Store Dataset, Still need plot Product Cat Dataset
+```{r Plot Distribution}
+#evaluating sales and quantity and its distribution.
+#Online Channel SV SQ RV RQ 
+ggplot(ol, aes(x=ol$salesvalue)) + geom_histogram(colour="green") + ggtitle("Online Channel Sales Value") + theme(plot.title = element_text(hjust = 0.5))
+ggplot(ol, aes(x=log(ol$salesvalue))) + geom_histogram(colour="green")+ ggtitle("Online Channel LOG Sales Value") + theme(plot.title = element_text(hjust = 0.5))
+
+ggplot(ol, aes(x=ol$salesquantity)) + geom_histogram(colour="green") + ggtitle("Online Channel Sales Quantity") + theme(plot.title = element_text(hjust = 0.5))
+ggplot(ol, aes(x=log(ol$salesquantity))) + geom_histogram(colour="green")+ ggtitle("Online Channel LOG Sales Quantity") + theme(plot.title = element_text(hjust = 0.5))
+
+ggplot(ol, aes(x=ol$returnvalue)) + geom_histogram(colour="green")+ ggtitle("Online Channel Return Value") + theme(plot.title = element_text(hjust = 0.5)) 
+ggplot(ol, aes(x=log(ol$returnvalue))) + geom_histogram(colour="green")+ ggtitle("Online Channel LOG Return Value") + theme(plot.title = element_text(hjust = 0.5))
+
+ggplot(ol, aes(x=ol$returnquantity)) + geom_histogram(colour="green")+ ggtitle("Online Channel Return Quantity") + theme(plot.title = element_text(hjust = 0.5)) 
+ggplot(ol, aes(x=log(ol$returnquantity))) + geom_histogram(colour="green")+ ggtitle("Online Channel LOG Return Quantity") + theme(plot.title = element_text(hjust = 0.5))
+
+#Physical Channel SV SQ RV RQ 
+ggplot(bm, aes(x=bm$salesvalue)) + geom_histogram(colour="green")+ ggtitle("Physical Store Sales Value") + theme(plot.title = element_text(hjust = 0.5)) 
+ggplot(bm, aes(x=log(bm$salesvalue))) + geom_histogram(colour="green")+ ggtitle("Physical Store LOG Sales Value") + theme(plot.title = element_text(hjust = 0.5))
+
+ggplot(bm, aes(x=bm$salesquantity)) + geom_histogram(colour="green")+ ggtitle("Physical Store Sales Quantity") + theme(plot.title = element_text(hjust = 0.5)) 
+ggplot(bm, aes(x=log(bm$salesquantity))) + geom_histogram(colour="green")+ ggtitle("Physical Store LOG Sales Quantity") + theme(plot.title = element_text(hjust = 0.5))
+
+ggplot(bm, aes(x=bm$returnvalue)) + geom_histogram(colour="green")+ ggtitle("Physical Store Return Value") + theme(plot.title = element_text(hjust = 0.5)) 
+ggplot(bm, aes(x=log(bm$returnvalue))) + geom_histogram(colour="green")+ ggtitle("Physical Store LOG Return Value") + theme(plot.title = element_text(hjust = 0.5))
+
+ggplot(bm, aes(x=bm$returnquantity)) + geom_histogram(colour="green")+ ggtitle("Physical Store Return Quantity") + theme(plot.title = element_text(hjust = 0.5)) 
+ggplot(bm, aes(x=log(bm$returnquantity))) + geom_histogram(colour="green")+ ggtitle("Physical Store LOG Return Quantity") + theme(plot.title = element_text(hjust = 0.5))
+
+#Physical Channel store_number_of_skus
+ggplot(bm, aes(x=bm$store_number_of_skus)) + geom_histogram(colour="green")+ ggtitle("Physical Store The Number of Product") + theme(plot.title = element_text(hjust = 0.5)) 
+ggplot(bm, aes(x=log(bm$store_number_of_skus))) + geom_histogram(colour="green")+ ggtitle("Physical Store LOG The Number of Product") + theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r Create dummy variables}
+#created dummy variables per instructor comments
+bm$policy_dummy <- ifelse(bm$policy == "60 days",0,1)
+bm$time_dummy <- ifelse(bm$month_index < 51,0,1)
+
+bm$logsalesvalue <- log(bm$salesvalue+1)
+bm$logsalesquantity <- log(bm$salesquantity+1)
+
+bm_pc$policy_dummy <- ifelse(bm_pc$policy == "60 days",0,1)
+bm_pc$time_dummy <- ifelse(bm_pc$month_index < 51,0,1)
+
+bm_pc$logsalesvalue <- log(bm_pc$salesvalue+1)
+bm_pc$logsalesquantity <- log(bm_pc$salesquantity+1)
+
+ol$policy_dummy <- ifelse(ol$policy == "60 days",0,1)
+ol$time_dummy <- ifelse(ol$year==2013&ol$month_dummy<10,0,1)
+
+ol$logsalesvalue <- log(ol$salesvalue+1)
+ol$logsalesquantity <- log(ol$salesquantity+1)
+
+ol_pc$policy_dummy <- ifelse(ol_pc$policy == "60 days",0,1)
+ol_pc$time_dummy <- ifelse(ol_pc$year==2013&ol_pc$month_dummy<10,0,1)
+
+ol_pc$logsalesvalue <- log(ol_pc$salesvalue+1)
+ol_pc$logsalesquantity <- log(ol_pc$salesquantity+1)
+
+bm$logstore_number_of_skus <- log(bm$store_number_of_skus)
+bm_pc$logstore_number_of_skus <- log(bm_pc$store_number_of_skus)
+```
+```{r Clear NA} 
+#Clear NAs 
+#replace NA with mean value for online dataset
+m_ol = ol
+
+m_ol$avg_age[is.na(m_ol$avg_age)] <- median(m_ol$avg_age)
+m_ol$avg_income[is.na(m_ol$avg_income)] <- median(m_ol$avg_income)
+
+for(i in 1:ncol(ol)){
+  m_ol[is.na(m_ol[,i]), i] <- mean(m_ol[,i], na.rm = TRUE)
+}
+
+stargazer(m_ol, type="text", median=TRUE, iqr=TRUE,digits=1, title="Clear OL channel monthly sales-returns with mean replacement")
+
+m_olp = ol_pc
+m_olp$avg_age[is.na(m_olp$avg_age)] <- median(m_olp$avg_age)
+m_olp$avg_income[is.na(m_olp$avg_income)] <- median(m_olp$avg_income)
+for(i in 1:ncol(ol_pc)){
+  m_olp[is.na(m_olp[,i]), i] <- mean(m_olp[,i], na.rm = TRUE)
+}
+
+stargazer(m_olp, type="text", median=TRUE, iqr=TRUE,digits=1, title="Clear OL channel product level monthly sales-returns with mean replacement")
+
+#replace NA with mean in physical store dataset
+m_bm = bm
+
+m_bm$avg_age[is.na(m_bm$avg_age)] <- median(m_bm$avg_age)
+m_bm$avg_income[is.na(m_bm$avg_income)] <- median(m_bm$avg_income)
+m_bm$sales_volume_group[is.na(m_bm$sales_volume_group)] <- median(m_bm$sales_volume_group)
+m_bm$store_number_of_skus[is.na(m_bm$store_number_of_skus)] <- median(m_bm$store_number_of_skus)
+
+for(i in 1:ncol(bm)){
+  m_bm[is.na(m_bm[,i]), i] <- mean(m_bm[,i], na.rm = TRUE)
+}
+
+stargazer(m_bm, type="text", median=TRUE, iqr=TRUE,digits=1, title="Clear BM store monthly sales-returns") 
+
+m_bmp = bm_pc
+
+m_bmp$avg_age[is.na(m_bmp$avg_age)] <- median(m_bmp$avg_age)
+m_bmp$avg_income[is.na(m_bmp$avg_income)] <- median(m_bmp$avg_income)
+m_bmp$sales_volume_group[is.na(m_bmp$sales_volume_group)] <- median(m_bmp$sales_volume_group)
+m_bmp$store_number_of_skus[is.na(m_bmp$store_number_of_skus)] <- median(m_bmp$store_number_of_skus)
+
+for(i in 1:ncol(bm_pc)){
+  m_bmp[is.na(m_bmp[,i]), i] <- mean(m_bmp[,i], na.rm = TRUE)
+}
+
+stargazer(m_bmp, type="text", median=TRUE, iqr=TRUE,digits=1, title="Clear BM store product level monthly sales-returns")
+
+#Delete observations with NA 
+c_bm = na.omit(bm)
+c_bm_pc = na.omit(bm_pc)
+c_ol = na.omit(ol)
+c_ol_pc = na.omit(ol_pc)
+
+stargazer(c_bm, type="text", median=TRUE, iqr=TRUE,digits=1, title="Clear BM store monthly sales-returns") 
+stargazer(c_bm_pc, type="text", median=TRUE, iqr=TRUE,digits=1, title="Clear BM store monthly prod_cat sales-returns") 
+stargazer(c_ol, type="text", median=TRUE, iqr=TRUE,digits=1, title="Clear Online store daily sales-returns") 
+stargazer(c_ol_pc, type="text", median=TRUE, iqr=TRUE,digits=1, title="Clear Online store daily prod_cat sales-returns") 
+
+
+```
+#no multicollinearity test for m0_q
+#no sq as control variable in m0_q
+
+```{r Ininal Test #add comparasion with omit NA and mean replacement}
+#Question 1: What is the impact of the policy change on online channel sales?
+
+#these  models were the premliminary models we used to find the finals 
+#Test multicollinearity for Online variables - without sales variables  
+attach(m_ol)
+df_ol = data.frame(policy_dummy,time_dummy,avg_female,avg_age,avg_income,avg_homeowner,avg_residency,avg_childowner)
+detach(m_ol)
+cor(df_ol)      #all scores below 0.8 No multicollinearity
+vifcor(df_ol)   #all scores below 3 no multicollinearity
+# No multicollinearity
+
+#compare 2 approaches to address NA
+#added "+1" to have negative values be non-negative after log transform
+#1. Models with omit of NA 
+m0 <- lm(log(salesvalue+1)~policy_dummy*time_dummy+avg_female+avg_age+avg_income+avg_homeowner+avg_residency+avg_childowner, data = c_ol) #c_ol replaces na with zeros
+ stargazer(m0,
+           title="Regression Results", type="text", 
+           column.labels=c("Model 0"),
+           df=FALSE, digits=3, star.cutoffs = c(0.05,0.01,0.001))
+ 
+m0_q <- lm(log(salesquantity+1)~policy_dummy*time_dummy+avg_female+avg_age+avg_income+avg_homeowner+avg_residency+avg_childowner, data = c_ol) #m_ol replaces na with mean
+  stargazer(m0_q,
+           title="Regression Results", type="text", 
+           column.labels=c("Model 0 Quantity"),
+           df=FALSE, digits=3, star.cutoffs = c(0.05,0.01,0.001))
+
+#2.Models with Mean Replacement 
+#Sales Value Model
+m0_mean <- lm(log(salesvalue+1)~policy_dummy*time_dummy+log(salesquantity)+avg_female+avg_age+avg_income+avg_homeowner+avg_residency+avg_childowner, data = m_ol)
+stargazer(m0_mean,
+          title="Regression Results", type="text", 
+          column.labels=c("Model 0 NA with Mean Value"),
+          df=FALSE, digits=3, star.cutoffs = c(0.05,0.01,0.001))
+
+#Test Heteroskedasticity(error term)
+gqtest(m0_mean)
+bptest(m0_mean)
+
+#We do have Heteroskedasticity.
+#Need robust errors and compare models
+
+consstder <- sqrt(diag(vcovHC(m0_mean, type="const"))) # produces normal standard errors
+HWrobstder <- sqrt(diag(vcovHC(m0_mean, type="HC1"))) # produces Huber-White robust standard errors 
+#clusrobstder <- sqrt(diag(cluster.vcov(m0_mean, mydata$Region))) # produces clustered robust standard errors
+
+stargazer(m0_mean, m0_mean,   
+          se=list(consstder, HWrobstder),
+          title="Regression Results", type="text", 
+          column.labels=c("Normal SE", "HW-Robust SE"),
+          df=FALSE, digits=2, star.cutoffs = c(0.05,0.01,0.001))  # displays normal/HW robust/clustered robust standard errors. With clustered robust standard errors, we find that two variables are no longer significant
+
+```
+
+```{r Q1 OL Sale Value}
+#Q1 online sales value model
+#Test multicollinearity
+attach(m_ol)
+df_ol = data.frame(policy_dummy,time_dummy,avg_female,avg_age,avg_income,avg_homeowner,avg_residency,avg_childowner)
+detach(m_ol)
+
+cor(df_ol)      #all scores below 0.8 No multicollinearity
+vifcor(df_ol)   #all scores below 3 no multicollinearity
+# No multicollinearity
+
+m0_value <- lm(log(salesvalue+1)~policy_dummy*time_dummy+avg_female+avg_age+avg_income+avg_homeowner+avg_residency+avg_childowner, data = m_ol)
+
+stargazer(m0_value,
+          title="Regression Results", type="text", 
+          column.labels=c("Model 0 OL Sales Value"),
+          df=FALSE, digits=3, star.cutoffs = c(0.05,0.01,0.001))
+
+#Interaction term not significant - test for Heter if signi. do robust error comparison -
+
+#Check for Heteroscedasticity
+gqtest(m0_value) # <= 0.05 - Significant Goldfeld-Quandt test indicates heteroscedasticity
+bptest(m0_value) # <= 0.05 Significant Breusch-Pagan test indicates heteroscedasticity
+
+#Robust error did not change interaction term
+consstder <- sqrt(diag(vcovHC(m0_value, type="const")))  # produces normal standard errors
+HWrobstder <- sqrt(diag(vcovHC(m0_value, type="HC1"))) # produces Huber-White robust standard errors 
+
+stargazer(m0_value, m0_value,  
+          se=list(consstder, HWrobstder),
+          title="Regression Results", type="text", 
+          column.labels=c("Normal SE", "HW-Robust SE"),
+          df=FALSE, digits=2, star.cutoffs = c(0.05,0.01,0.001))
+
+stargazer(m0_value,  
+          se=list(HWrobstder),
+          title="Regression Results", type="text", 
+          column.labels=c("HW-Robust SE"),
+          df=FALSE, digits=2, star.cutoffs = c(0.05,0.01,0.001))
+```
+
+```{r Q1 OL Sale Quantity}
+#Q1 - Negative Binominal Quantity Model
+m0_quantity_nb <- glm.nb(salesquantity~policy_dummy*time_dummy+avg_female+avg_age+avg_income+avg_homeowner+avg_residency+avg_childowner, data = m_ol)
+
+stargazer(m0_quantity_nb,
+          title="Regression Results", type="text", 
+          column.labels=c("Model OL Sales Quantity NB"),
+          df=FALSE, digits=3, star.cutoffs = c(0.05,0.01,0.001))
+
+#Model Fit test = Significant Chisq thus models are different and negative binomial stands.
+nb1 <- glm.nb(salesquantity ~ 1, data = m_ol)
+
+lrtest(m0_quantity_nb, nb1)
+
+#Interaction term not significant - test for Heteroscedasticity if significant, do robust error comparison -
+#Check for Heteroscedasticity
+gqtest(m0_quantity_nb) # <= 0.05 - Significant Goldfeld-Quandt test indicates heteroscedasticity
+bptest(m0_quantity_nb) # <= 0.05 Significant Breusch-Pagan test indicates heteroscedasticity
+
+#Robust error did not change interaction term
+consstder <- sqrt(diag(vcovHC(m0_quantity_nb, type="const")))  # produces normal standard errors
+HWrobstder <- sqrt(diag(vcovHC(m0_quantity_nb, type="HC1"))) # produces Huber-White robust standard errors 
+
+stargazer(m0_quantity_nb, m0_quantity_nb,  
+          se=list(consstder, HWrobstder),
+          title="Regression Results", type="text", 
+          column.labels=c("Normal SE", "HW-Robust SE"),
+          df=FALSE, digits=2, star.cutoffs = c(0.05,0.01,0.001))
+
+stargazer(m0_quantity_nb, 
+          se=list(HWrobstder),
+          title="Regression Results", type="text", 
+          column.labels=c("Normal SE", "HW-Robust SE"),
+          df=FALSE, digits=2, star.cutoffs = c(0.05,0.01,0.001))
+
+
+```
+
+```{r Subset - visualization only}
+ol_10 <- subset(m_ol, policy == "60 days")
+ol_26 <- subset(m_ol, policy != "60 days")
+
+stargazer(ol_10, type="text", median=TRUE, iqr=TRUE,digits=1, title="Online store Not Change") 
+stargazer(ol_26, type="text", median=TRUE, iqr=TRUE,digits=1, title="Online storeChange") 
+```
+
+```{r additioanl model for question 1}
+model1 = lm((log(salesvalue+1)/log(salesquantity+1))~policy_dummy*time_dummy+avg_female+avg_age+avg_income+avg_homeowner+avg_residency+avg_childowner, data = m_ol)
+stargazer(m0_value,model1,
+          title="Regression Results", type="text", 
+          column.labels=c("Model 0 Value","Model 0 Quantity","Model 1 Average Price"),
+          df=FALSE, digits=3, star.cutoffs = c(0.05,0.01,0.001))
+
+plot(m_ol$month_dummy, m_ol$salesvalue, main="Sales Value", 
+  	xlab="month ", ylab="$", pch=19)
+
+meffects1 <- ggpredict(model1, terms=c("policy_dummy", "time_dummy")) 
+
+ggplot(meffects1,aes(x, predicted, colour=group)) + geom_line(size=1.3) + 
+    xlab("time") + ylab("$") +
+    labs(colour="Policy") + 
+    scale_colour_discrete(labels=c("Same (60 days)", "Change (90 Days to 45 Days)"))
+```
+
+```{r Q2 BM Multicollinearity Test}
+#Question 2: What is the impact of the policy change on physical store sales?
+#Check multicollinearity for bm
+attach(m_bm)
+df_bm = data.frame(policy_dummy,time_dummy,avg_female,avg_age,avg_income,avg_homeowner,avg_residency,avg_childowner,store_average_price,store_number_of_skus,sa_gender,sa_full_time,sa_avg_years_of_exp,sa_married,sa_avg_rate_of_pay,sa_dependent,sales_volume_group)
+detach(m_bm)
+cor(df_bm)
+vifcor(df_bm) 
+
+#delete sales_volume_group
+attach(m_bm)
+df_bm2 = data.frame(policy_dummy,time_dummy,avg_female,avg_age,avg_income,avg_homeowner,avg_residency,avg_childowner,store_average_price,store_number_of_skus,sa_gender,sa_full_time,sa_avg_years_of_exp,sa_married,sa_avg_rate_of_pay,sa_dependent)
+detach(m_bm)
+cor(df_bm2)
+vifcor(df_bm2)
+#no multicollinearity any more
+```
+
+```{r Q2 BM Sales Value and Quantity Models}
+#Q2 - bm Sales Value Model
+m0_bm_v <- lm(log(salesvalue)~policy_dummy*time_dummy+avg_female+avg_age+avg_income+avg_homeowner+avg_residency+avg_childowner+sa_full_time+sa_avg_years_of_exp+sa_avg_rate_of_pay+sa_gender+sa_married+sa_dependent+log(store_number_of_skus), data = m_bm)
+
+stargazer(m0_bm_v,
+          title="Regression Results", type="text", 
+          column.labels=c("Model 0 Physical Store Sales Value"),
+          df=FALSE, digits=3, star.cutoffs = c(0.05,0.01,0.001))
+
+##Interaction term significant - test for Heteroscedasticity if significant, do robust error comparison -
+
+#Check for Heteroscedasticity
+gqtest(m0_bm_v)#<= 0.05 - Significant
+bptest(m0_bm_v)#<= 0.05 - Significant
+#significant
+
+consstder <- sqrt(diag(vcovHC(m0_bm_v, type="const")))  # produces normal standard errors
+HWrobstder2v <- sqrt(diag(vcovHC(m0_bm_v, type="HC1"))) # produces Huber-White robust standard errors 
+
+#Robust error did not change interaction term
+stargazer(m0_bm_v, m0_bm_v, 
+          se=list(consstder, HWrobstder2v),
+          title="Regression Results", type="text", 
+          column.labels=c("Normal SE", "HW-Robust SE"),
+          df=FALSE, digits=2, star.cutoffs = c(0.05,0.01,0.001))
+
+#Marginal Plot
+meffects2v <- ggpredict(m0_bm_v, terms=c("policy_dummy", "time_dummy")) 
+
+ggplot(meffects2v,aes(x, predicted, colour=group)) + geom_line(size=1.3) + 
+    xlab("time") + ylab("$") +
+    labs(colour="Policy") + 
+    scale_colour_discrete(labels=c("Same (60 days)", "Change (90 Days to 45 Days)"))+ ggtitle("Physical Store Sales Value") + theme(plot.title = element_text(hjust = 0.5))
+
+#Q2 - Negative Binominal Sales Quantity Model
+m0_bm_q <- glm.nb(salesquantity~policy_dummy*time_dummy+avg_female+avg_age+avg_income+avg_homeowner+avg_residency+avg_childowner+sa_gender+sa_full_time+sa_avg_years_of_exp+sa_married+sa_avg_rate_of_pay+sa_dependent+log(store_number_of_skus), data = m_bm)
+
+stargazer(m0_bm_q,
+          title="Regression Results", type="text", 
+          column.labels=c("Model 0 Physical Store Sales Quantity NB"),
+          df=FALSE, digits=3, star.cutoffs = c(0.05,0.01,0.001))
+
+#interaction term siginificant
+
+#Model Fit test = Significant Chisq thus models are different and negative binomial stands.
+nb2 <- glm.nb(salesquantity ~ 1, data = m_bm)
+
+lrtest(m0_bm_q, nb2)
+#p-value significant, model fits
+
+#obtain IRRs
+stargazer(m0_bm_q, 
+          apply.coef = exp, t.auto=F, p.auto = F,
+          title="Regression Results", type="text", 
+          column.labels=c("Model 0 Physical Store Sales Quantity IRR"),
+          df=FALSE, digits=4, star.cutoffs = c(0.05,0.01,0.001)) 
+
+#Marginal Plot
+meffects2q <- ggpredict(m0_bm_q, terms=c("policy_dummy", "time_dummy")) 
+
+ggplot(meffects2q,aes(x, predicted, colour=group)) + geom_line(size=1.3) + 
+    xlab("time") + ylab("Quantity") +
+    labs(colour="Policy") + 
+    scale_colour_discrete(labels=c("Same (60 days)", "Change (90 Days to 45 Days)"))+ ggtitle("Physical Store Sales Quantity") + theme(plot.title = element_text(hjust = 0.5))
+
+#Check for Heteroscedasticity
+gqtest(m0_bm_q) #no significance
+bptest(m0_bm_q) #<=0.05 Significant thus we have Heteroscedasticity
+#significant
+
+HWrobstder2q <- sqrt(diag(vcovHC(m0_bm_q, type="HC1"))) # produces Huber-White robust standard errors, no difference
+
+stargazer(m0_bm_q, m0_bm_q, 
+          se=list(NULL, HWrobstder2q),
+          title="Regression Results", type="text", 
+          column.labels=c("Normal SE", "HW-Robust SE"),
+          df=FALSE, digits=2, star.cutoffs = c(0.05,0.01,0.001)) 
+```
+
+```{r Q3 OL Return Multicollinearity Test}
+#Question 3: What is the impact of the policy change on online channel returns?
+
+#Test multicollinearity for Online variables including sales variables
+attach(m_ol)
+df_olr1 = data.frame(policy_dummy,time_dummy,avg_female,avg_age,avg_income,avg_homeowner,avg_residency,avg_childowner,salesvalue,salesquantity)
+detach(m_ol)
+cor(df_olr1)
+vifcor(df_olr1)     
+
+#excluding salesvalue 
+attach(m_ol)
+df_olr2 = data.frame(policy_dummy,time_dummy,avg_female,avg_age,avg_income,avg_homeowner,avg_residency,avg_childowner,salesquantity)
+detach(m_ol)
+cor(df_olr2)
+vif(df_olr2)
+vifcor(df_olr2)
+#No multicollinearity
+
+#excluding salesquantity 
+attach(m_ol)
+df_olr3 = data.frame(policy_dummy,time_dummy,avg_female,avg_age,avg_income,avg_homeowner,avg_residency,avg_childowner,salesvalue)
+detach(m_ol)
+cor(df_olr3)
+vif(df_olr3)
+vifcor(df_olr3)
+#No multicollinearity
+```
+
+```{r Q3 OL Return Value and Quantity Models}
+#Q3 - Online Return Value Model
+m0_ol_reval <- lm((log(returnvalue+1))~policy_dummy*time_dummy+logsalesvalue+avg_female+avg_age+avg_income+avg_homeowner+avg_residency+avg_childowner,data = m_ol)
+
+stargazer(m0_ol_reval,
+          title="Regression Results", type="text", 
+          column.labels=c("Model 0 Online Channel Return Value"),
+          df=FALSE, digits=3, star.cutoffs = c(0.05,0.01,0.001))
+
+##Interaction term not significant - test for Heteroscedasticity if significant, do robust error comparison -
+
+#Check for Heteroscedasticity
+gqtest(m0_ol_reval)#<= 0.05 - Significant
+bptest(m0_ol_reval)#<= 0.05 - Significant
+#significant, we have Heteroscedasticity
+
+consstder <- sqrt(diag(vcovHC(m0_ol_reval, type="const")))  # produces normal standard errors
+HWrobstder3v <- sqrt(diag(vcovHC(m0_ol_reval, type="HC1"))) # produces Huber-White robust standard errors 
+
+#Error comparison
+stargazer(m0_ol_reval, m0_ol_reval, 
+          se=list(consstder, HWrobstder3v),
+          title="Regression Results", type="text", 
+          column.labels=c("Normal SE", "HW-Robust SE"),
+          df=FALSE, digits=2, star.cutoffs = c(0.05,0.01,0.001))
+
+stargazer(m0_ol_reval, 
+          se=list(HWrobstder3v),
+          title="Regression Results", type="text", 
+          column.labels=c("Normal SE", "HW-Robust SE"),
+          df=FALSE, digits=2, star.cutoffs = c(0.05,0.01,0.001))
+#interaction term Still NOT siginificant
+
+#Q3 - Negative Binominal Return Quantity Model
+m0_ol_req <- glm.nb(returnquantity~policy_dummy*time_dummy+logsalesquantity+avg_female+avg_age+avg_income+avg_homeowner+avg_residency+avg_childowner, data = m_bm)
+
+stargazer(m0_ol_req,
+          title="Regression Results", type="text", 
+          column.labels=c("Model 0 Online Channel Return Quantity NB"),
+          df=FALSE, digits=3, star.cutoffs = c(0.05,0.01,0.001))
+#interaction term siginificant
+
+#Model Fit test = Significant Chisq thus models are different and negative binomial stands.
+nb3 <- glm.nb(returnquantity ~ 1, data = m_bm)
+
+lrtest(m0_ol_req, nb3)
+#p-value significant, model fits
+
+###CLAIRE this step was not included, shoudl we include?###
+
+#obtain IRRs
+stargazer(m0_ol_req, 
+          apply.coef = exp, t.auto=F, p.auto = F,
+          title="Regression Results", type="text", 
+          column.labels=c("Model m0_ol_req Online Channel Returns IRR"),
+          df=FALSE, digits=4, star.cutoffs = c(0.05,0.01,0.001)) 
+
+#Check for Heteros
+gqtest(m0_ol_req)
+bptest(m0_ol_req)
+#significant
+
+HWrobstder3q <- sqrt(diag(vcovHC(m0_ol_req, type="HC1"))) # produces Huber-White robust standard errors, no change
+
+stargazer(m0_ol_req, m0_ol_req, 
+          se=list(NULL, HWrobstder3q),
+          title="Regression Results", type="text", 
+          column.labels=c("Normal SE", "HW-Robust SE"),
+          df=FALSE, digits=2, star.cutoffs = c(0.05,0.01,0.001))
+
+#Marginal Plot
+meffects3q <- ggpredict(m0_ol_req, terms=c("policy_dummy", "time_dummy")) 
+
+ggplot(meffects3q,aes(x, predicted, colour=group)) + geom_line(size=1.3) + 
+    xlab("time") + ylab("Quantity") +
+    labs(colour="Policy") + 
+    scale_colour_discrete(labels=c("Same (60 days)", "Change (90 Days to 45 Days)"))+ ggtitle("Online Channel Return Quantity") + theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r Q4 BM Return Multicollinearity Test}
+#Question 4: What is the impact of the policy change on physical store returns?
+
+#Test multicollinearity for physical store variables including sales 
+attach(m_bm)
+df_bmr1 = data.frame(policy_dummy,time_dummy,avg_female,avg_age,avg_income,avg_homeowner,avg_residency,avg_childowner,salesvalue,salesquantity,store_average_price,store_number_of_skus,sa_gender,sa_full_time,sa_avg_years_of_exp,sa_married,sa_avg_rate_of_pay,sa_dependent,sales_volume_group)
+detach(m_bm)
+cor(df_bmr1)
+vifcor(df_bmr1)     
+
+#delete salesvalue
+attach(m_bm)
+df_bmr2 = data.frame(policy_dummy,time_dummy,avg_female,avg_age,avg_income,avg_homeowner,avg_residency,avg_childowner,salesquantity,store_average_price,store_number_of_skus,sa_gender,sa_full_time,sa_avg_years_of_exp,sa_married,sa_avg_rate_of_pay,sa_dependent,sales_volume_group)
+detach(m_bm)
+cor(df_bmr2)
+vifcor(df_bmr2) 
+
+#delete store_number_of_skus
+attach(m_bm)
+df_bmr3 = data.frame(policy_dummy,time_dummy,avg_female,avg_age,avg_income,avg_homeowner,avg_residency,avg_childowner,salesquantity,store_average_price,sa_gender,sa_full_time,sa_avg_years_of_exp,sa_married,sa_avg_rate_of_pay,sa_dependent,sales_volume_group)
+detach(m_bm)
+cor(df_bmr3)
+vifcor(df_bmr3) 
+
+#delete store_average_price
+attach(m_bm)
+df_bmr4 = data.frame(policy_dummy,time_dummy,avg_female,avg_age,avg_income,avg_homeowner,avg_residency,avg_childowner,salesquantity,sa_gender,sa_full_time,sa_avg_years_of_exp,sa_married,sa_avg_rate_of_pay,sa_dependent,sales_volume_group)
+detach(m_bm)
+cor(df_bmr4)
+vifcor(df_bmr4)
+#no multicollinearity any more
+
+```
+
+```{r Q4 BM Return Models}
+#Q4 - BM Return Value Model
+m0_bm_reval <- lm((log(returnvalue+1))~policy_dummy*time_dummy+logsalesvalue+avg_female+avg_age+avg_income+avg_homeowner+avg_residency+avg_childowner+sa_gender+sa_full_time+sa_avg_years_of_exp+sa_married+sa_avg_rate_of_pay+sa_dependent+sales_volume_group,data = m_bm)
+
+stargazer(m0_bm_reval,
+          title="Regression Results", type="text", 
+          column.labels=c("Model 0 Physical Store Return Value"),
+          df=FALSE, digits=3, star.cutoffs = c(0.05,0.01,0.001))
+#interaction term siginificant
+
+#Marginal Plot
+meffects4v <- ggpredict(m0_bm_reval, terms=c("policy_dummy", "time_dummy")) 
+
+ggplot(meffects4v,aes(x, predicted, colour=group)) + geom_line(size=1.3) + 
+    xlab("time") + ylab("$") +
+    labs(colour="Policy") + 
+    scale_colour_discrete(labels=c("Same (60 days)", "Change (90 Days to 45 Days)"))+ ggtitle("Physical Store Return Value") + theme(plot.title = element_text(hjust = 0.5))
+
+#Check for Heteros
+gqtest(m0_bm_reval)
+bptest(m0_bm_reval)
+#significant
+
+HWrobstder4v <- sqrt(diag(vcovHC(m0_bm_reval, type="HC1"))) # produces Huber-White robust standard errors, did not change interaction term.
+
+stargazer(m0_bm_reval, m0_bm_reval, 
+          se=list(NULL, HWrobstder4v),
+          title="Regression Results", type="text", 
+          column.labels=c("Normal SE", "HW-Robust SE"),
+          df=FALSE, digits=2, star.cutoffs = c(0.05,0.01,0.001)) 
+
+#Q4 - Negative Binominal Return Quantity Model
+m0_bm_req <- glm.nb(returnquantity~policy_dummy*time_dummy+logsalesquantity+avg_female+avg_age+avg_income+avg_homeowner+avg_residency+avg_childowner+sa_gender+sa_full_time+sa_avg_years_of_exp+sa_married+sa_avg_rate_of_pay+sa_dependent+sales_volume_group,data = m_bm)
+
+stargazer(m0_bm_req,
+          title="Regression Results", type="text", 
+          column.labels=c("Model 0 Physical Store Return Quantity NB"),
+          df=FALSE, digits=3, star.cutoffs = c(0.05,0.01,0.001))
+#interaction term siginificant
+
+#Model Fit test = Significant Chisq thus models are different and negative binomial stands.
+nb4 <- glm.nb(returnquantity ~ 1, data = m_bm)
+
+lrtest(m0_bm_req, nb4)
+#p-value significant, model fits
+
+#obtain IRRs
+stargazer(m0_bm_req, 
+          apply.coef = exp, t.auto=F, p.auto = F,
+          title="Regression Results", type="text", 
+          column.labels=c("Model Return Quantity IRR"),
+          df=FALSE, digits=4, star.cutoffs = c(0.05,0.01,0.001)) 
+
+
+#Marginal Plot
+meffects4q <- ggpredict(m0_bm_req, terms=c("policy_dummy", "time_dummy")) 
+
+ggplot(meffects4q,aes(x, predicted, colour=group)) + geom_line(size=1.3) + 
+    xlab("time") + ylab("$") +
+    labs(colour="Policy") + 
+    scale_colour_discrete(labels=c("Same (60 days)", "Change (90 Days to 45 Days)"))+ ggtitle("Physical Store Return Quantity") + theme(plot.title = element_text(hjust = 0.5))
+
+
+#Check for Heteroscedasticity
+gqtest(m0_bm_req)#no significance
+bptest(m0_bm_req)#<=0.05 Significant thus we have Heteroscedasticity
+#significant
+
+HWrobstder4q <- sqrt(diag(vcovHC(m0_bm_req, type="HC1"))) # produces Huber-White robust standard errors. Robust error did not change interaction term 
+
+stargazer(m0_bm_req, m0_bm_req, 
+          se=list(NULL, HWrobstder4q),
+          title="Regression Results", type="text", 
+          column.labels=c("Normal SE", "HW-Robust SE"),
+          df=FALSE, digits=2, star.cutoffs = c(0.05,0.01,0.001))
+```
+
+```{r Q5 OL Multicollinearity Test}
+#Question 5: What is the impact of the policy change on product level online sales and returns as well as on product level physical store sales and returns?
+
+attach(m_olp)
+df_olp_s = data.frame(product_category,policy_dummy,time_dummy,avg_female,avg_age,avg_income,avg_homeowner,avg_residency,avg_childowner)
+df_olp_r = data.frame(product_category,policy_dummy,time_dummy,avg_female,avg_age,avg_income,avg_homeowner,avg_residency,avg_childowner,salesvalue,salesquantity)
+detach(m_olp)
+
+cor(df_olp_s)
+vif(df_olp_s)
+vifcor(df_olp_s)
+
+cor(df_olp_r)
+vif(df_olp_r)
+vifcor(df_olp_r)
+
+attach(m_olp)
+df_olp_r2 = data.frame(product_category,policy_dummy,time_dummy,avg_female,avg_age,avg_income,avg_homeowner,avg_residency,avg_childowner,salesquantity)
+detach(m_olp)
+
+cor(df_olp_r)
+vif(df_olp_r)
+vifcor(df_olp_r)
+#No Multicollinearity
+
+```
+
+```{r Q5 OL Models}
+#Question 5: What is the impact of the policy change on product level online sales and returns as well as on product level physical store sales and returns?
+
+#OL Sales Value Product Level
+m0_olp_sv = lm(log(salesvalue+1)~policy_dummy*time_dummy+avg_female+factor(product_category)+avg_age+avg_income+avg_homeowner+avg_residency+avg_childowner, data = m_olp)
+
+stargazer(m0_olp_sv,
+          title="Regression Results", type="text", 
+          column.labels=c("Model OL Sales Vale Product Category"),
+          df=FALSE, digits=3, star.cutoffs = c(0.05,0.01,0.001))
+
+##Interaction term not significant - test for Heteroscedasticity if significant, do robust error comparison -
+#Check for Heteroscedasticity
+gqtest(m0_olp_sv)#<= 0.05 - Significant
+bptest(m0_olp_sv)#<= 0.05 - Significant
+#significant
+
+consstder <- sqrt(diag(vcovHC(m0_olp_sv, type="const")))  # produces normal standard errors
+HWrobstder2v <- sqrt(diag(vcovHC(m0_olp_sv, type="HC1"))) # produces Huber-White robust standard errors 
+
+#Robust error did not change interaction term
+stargazer(m0_olp_sv, m0_olp_sv, 
+          se=list(consstder, HWrobstder2v),
+          title="Regression Results", type="text", 
+          column.labels=c("Normal SE", "HW-Robust SE"),
+          df=FALSE, digits=2, star.cutoffs = c(0.05,0.01,0.001))
+stargazer(m0_olp_sv, 
+          se=list(HWrobstder2v),
+          title="Regression Results", type="text", 
+          column.labels=c("Normal SE","HW-Robust SE"),
+          df=FALSE, digits=2, star.cutoffs = c(0.05,0.01,0.001))
+
+
+#OL Return Value Product Level
+m0_olp_rv = lm(log(returnvalue+1)~policy_dummy*time_dummy+logsalesvalue+avg_female+factor(product_category)+avg_age+avg_income+avg_homeowner+avg_residency+avg_childowner, data = m_olp)
+
+stargazer(m0_olp_rv,
+          title="Regression Results", type="text", 
+          column.labels=c("Model OL Return Vale Product Category"),
+          df=FALSE, digits=3, star.cutoffs = c(0.05,0.01,0.001))
+
+#Interaction term significant - test for Heteroscedasticity if significant, do robust error comparison -
+
+#Check for Heteroscedasticity
+gqtest(m0_olp_rv)# not Significant
+bptest(m0_olp_rv)#<= 0.05 - Significant
+#significant
+
+consstder <- sqrt(diag(vcovHC(m0_olp_rv, type="const")))  # produces normal standard errors
+HWrobstder2v <- sqrt(diag(vcovHC(m0_olp_rv, type="HC1"))) # produces Huber-White robust standard errors 
+
+#Robust error did not change interaction term
+stargazer(m0_olp_rv, m0_olp_rv, 
+          se=list(consstder, HWrobstder2v),
+          title="Regression Results", type="text", 
+          column.labels=c("Normal SE", "HW-Robust SE"),
+          df=FALSE, digits=2, star.cutoffs = c(0.05,0.01,0.001))
+
+#OL Sales Quantity Product Level NB
+m0_olp_sq<- glm.nb(salesquantity~policy_dummy*time_dummy+factor(product_category)+avg_female+avg_age+avg_income+avg_homeowner+avg_residency+avg_childowner, data = m_olp)
+
+stargazer(m0_olp_sq,
+          title="Regression Results", type="text", 
+          column.labels=c("Model OL Sales Quantity Product Category"),
+          df=FALSE, digits=3, star.cutoffs = c(0.05,0.01,0.001))
+
+#Model Fit test = Significant Chisq thus models are different and negative binomial stands.
+nb5olsq <- glm.nb(salesquantity ~ 1, data = m_olp)
+lrtest(m0_olp_sq, nb5olsq)
+
+##Interaction term not significant - test for Heteroscedasticity if significant, do robust error comparison -
+
+#Check for Heteroscedasticity
+gqtest(m0_olp_sq)#<= 0.05 - Significant
+bptest(m0_olp_sq)#<= 0.05 - Significant
+#significant
+
+consstder <- sqrt(diag(vcovHC(m0_olp_sq, type="const")))  # produces normal standard errors
+HWrobstder2v <- sqrt(diag(vcovHC(m0_olp_sq, type="HC1"))) # produces Huber-White robust standard errors 
+
+#Robust error did not change interaction term
+stargazer(m0_olp_sq, m0_olp_sq, 
+          se=list(consstder, HWrobstder2v),
+          title="Regression Results", type="text", 
+          column.labels=c("Normal SE", "HW-Robust SE"),
+          df=FALSE, digits=2, star.cutoffs = c(0.05,0.01,0.001))
+
+stargazer(m0_olp_sq,  
+          se=list(HWrobstder2v),
+          title="Regression Results", type="text", 
+          column.labels=c("HW-Robust SE"),
+          df=FALSE, digits=2, star.cutoffs = c(0.05,0.01,0.001))
+
+#OL Return Quantity Product Level NB
+m0_olp_rq<- glm.nb(returnquantity~policy_dummy*time_dummy+logsalesquantity+factor(product_category)+avg_female+avg_age+avg_income+avg_homeowner+avg_residency+avg_childowner, data = m_olp)
+
+stargazer(m0_olp_rq,
+          title="Regression Results", type="text", 
+          column.labels=c("Model OL Return Quantity Product Category"),
+          df=FALSE, digits=3, star.cutoffs = c(0.05,0.01,0.001))
+
+#interaction term siginificant
+
+#Model Fit test = Significant Chisq thus models are different and negative binomial stands.
+nb5olrq <- glm.nb(returnquantity ~ 1, data = m_olp)
+lrtest(m0_olp_rq, nb5olrq)
+
+#obtain IRRs
+stargazer(m0_olp_rq, 
+          apply.coef = exp, t.auto=F, p.auto = F,
+          title="Regression Results", type="text", 
+          column.labels=c("Model 0 Return Quantity Product Level IRR"),
+          df=FALSE, digits=4, star.cutoffs = c(0.05,0.01,0.001)) 
+
+#Check for Heteroscedasticity
+gqtest(m0_olp_rq) #<=0.05 Significant thus we have Heteroscedasticity
+bptest(m0_olp_rq) #<=0.05 Significant thus we have Heteroscedasticity
+#significant
+
+HWrobstder2q <- sqrt(diag(vcovHC(m0_olp_rq, type="HC1"))) # produces Huber-White robust standard errors, no difference
+
+stargazer(m0_olp_rq, m0_olp_rq, 
+          se=list(NULL, HWrobstder2q),
+          title="Regression Results", type="text", 
+          column.labels=c("Normal SE", "HW-Robust SE"),
+          df=FALSE, digits=2, star.cutoffs = c(0.05,0.01,0.001))
+#Robust error did not change interaction term
+
+```
+
+```{r Subset OL_PC}
+olp_list <- split(m_olp, m_olp$product_category)
+pc_avg_vale = array()
+pc_avg_quantity = array()
+for(i in 1:length(olp_list)){
+  pc_avg_vale[i] <- sum(olp_list[[i]]$salesvalue)
+  pc_avg_quantity[i] <- sum(olp_list[[i]]$salesquantity)
+}
+```
+
+```{r Q5 OL Marginal Plot}
+meffects5olrv <- ggpredict(m0_olp_rv, terms=c("policy_dummy", "time_dummy")) 
+
+ggplot(meffects5olrv,aes(x, predicted, colour=group)) + geom_line(size=1.3) + 
+    xlab("time") + ylab("$") +
+    labs(colour="Policy") + 
+    scale_colour_discrete(labels=c("Same (60 days)", "Change (90 Days to 45 Days)")) + ggtitle("Online Channel Return Value Product Value") + theme(plot.title = element_text(hjust = 0.5))+ scale_x_continuous(breaks=c(0,1))
+
+meffects5olrq <- ggpredict(m0_olp_rq, terms=c("policy_dummy", "time_dummy")) 
+
+ggplot(meffects5olrq,aes(x, predicted, colour=group)) + geom_line(size=1.3) + 
+    xlab("time") + ylab("Quantity") +
+    labs(colour="Policy") + 
+    scale_colour_discrete(labels=c("Same (60 days)", "Change (90 Days to 45 Days)")) + ggtitle("Online Channel Return Quantity Product Level") + theme(plot.title = element_text(hjust = 0.5)) + scale_x_continuous(breaks=c(0,1))
+```
+
+```{r Q5 BM Multicollinearity Tests}
+attach(m_bmp)
+df_bmp_s = data.frame(product_category,policy_dummy,time_dummy,avg_female,avg_age,avg_income,avg_homeowner,avg_residency,avg_childowner,store_average_price,store_number_of_skus,sa_gender,sa_full_time,sa_avg_years_of_exp,sa_married,sa_avg_rate_of_pay,sa_dependent,sales_volume_group)
+df_bmp_r = data.frame(product_category,policy_dummy,time_dummy,avg_female,avg_age,avg_income,avg_homeowner,avg_residency,avg_childowner,store_average_price,store_number_of_skus,sa_gender,sa_full_time,sa_avg_years_of_exp,sa_married,sa_avg_rate_of_pay,sa_dependent,sales_volume_group,salesvalue,salesquantity)
+detach(m_bmp)
+
+cor(df_bmp_s)
+vif(df_bmp_s)
+
+cor(df_bmp_r)
+vif(df_bmp_r)
+
+#Delete store_average_price
+attach(m_bmp)
+df_bmp_s2 = data.frame(product_category,policy_dummy,time_dummy,avg_female,avg_age,avg_income,avg_homeowner,avg_residency,avg_childowner,store_number_of_skus,sa_gender,sa_full_time,sa_avg_years_of_exp,sa_married,sa_avg_rate_of_pay,sa_dependent,sales_volume_group)
+df_bmp_r2 = data.frame(product_category,policy_dummy,time_dummy,avg_female,avg_age,avg_income,avg_homeowner,avg_residency,avg_childowner,store_number_of_skus,sa_gender,sa_full_time,sa_avg_years_of_exp,sa_married,sa_avg_rate_of_pay,sa_dependent,sales_volume_group,salesvalue,salesquantity)
+detach(m_bmp)
+
+cor(df_bmp_s2)
+vif(df_bmp_s2)
+
+cor(df_bmp_r2)
+vif(df_bmp_r2)
+```
+
+```{r Q5 BM Models}
+#BM Sales Value Product Level
+m0_bmp_sv <- lm((log(salesvalue+1))~policy_dummy*time_dummy+factor(product_category)+avg_female+avg_age+avg_income+avg_homeowner+avg_residency+avg_childowner+sa_gender+sa_full_time+sa_avg_years_of_exp+sa_married+sa_avg_rate_of_pay+sa_dependent+sales_volume_group+log(store_number_of_skus),data = m_bmp)
+
+stargazer(m0_bmp_sv,
+          title="Regression Results", type="text", 
+          column.labels=c("Model Physical Store Sales Value Product Level"),
+          df=FALSE, digits=3, star.cutoffs = c(0.05,0.01,0.001))
+
+##Interaction term Significant - test for Heteroscedasticity if significant, do robust error comparison -
+
+#Check for Heteroscedasticity
+gqtest(m0_bmp_sv)#not significant
+bptest(m0_bmp_sv)#<= 0.05 - Significant
+#significant
+
+consstder <- sqrt(diag(vcovHC(m0_bmp_sv, type="const")))  # produces normal standard errors
+HWrobstder2v <- sqrt(diag(vcovHC(m0_bmp_sv, type="HC1"))) # produces Huber-White robust standard errors 
+
+#Robust error did not change interaction term
+stargazer(m0_bmp_sv, m0_bmp_sv, 
+          se=list(consstder, HWrobstder2v),
+          title="Regression Results", type="text", 
+          column.labels=c("Normal SE", "HW-Robust SE"),
+          df=FALSE, digits=2, star.cutoffs = c(0.05,0.01,0.001))
+
+#BM Return Value Product Level
+m0_bmp_rv <- lm((log(returnvalue+1))~policy_dummy*time_dummy+factor(product_category)+logsalesvalue+avg_female+avg_age+avg_income+avg_homeowner+avg_residency+avg_childowner+sa_gender+sa_full_time+sa_avg_years_of_exp+sa_married+sa_avg_rate_of_pay+sa_dependent+sales_volume_group+log(store_number_of_skus) ,data = m_bmp)
+ 
+stargazer(m0_bmp_rv,
+           title="Regression Results", type="text", 
+           column.labels=c("Model Physical Store Return Value Product Level"),
+           df=FALSE, digits=3, star.cutoffs = c(0.05,0.01,0.001))
+ 
+##Interaction term Significant - test for Heteroscedasticity if significant, do robust error comparison -
+ 
+#Check for Heteroscedasticity
+gqtest(m0_bmp_rv)#<= 0.05 - Significant
+bptest(m0_bmp_rv)#<= 0.05 - Significant
+#significant
+consstder <- sqrt(diag(vcovHC(m0_bmp_rv, type="const")))  # produces normal standard errors
+HWrobstder2v <- sqrt(diag(vcovHC(m0_bmp_rv, type="HC1"))) # produces Huber-White robust standard errors 
+#Robust error did not change interaction term
+stargazer(m0_bmp_rv, m0_bmp_rv, 
+          se=list(consstder, HWrobstder2v),
+           title="Regression Results", type="text", 
+           column.labels=c("Normal SE", "HW-Robust SE"),
+           df=FALSE, digits=2, star.cutoffs = c(0.05,0.01,0.001))
+
+ #BM Sales Quantity Product Level NB
+m0_bmp_sq<- glm.nb(salesquantity~policy_dummy*time_dummy+factor(product_category)+avg_female+avg_age+avg_income+avg_homeowner+avg_residency+avg_childowner+sa_gender+sa_full_time+sa_avg_years_of_exp+sa_married+sa_avg_rate_of_pay+sa_dependent+sales_volume_group+log(store_number_of_skus) ,data = m_bmp)
+ 
+stargazer(m0_bmp_sq,
+           title="Regression Results", type="text", 
+           column.labels=c("Model Physical Sales Quantity Product Category"),
+           df=FALSE, digits=3, star.cutoffs = c(0.05,0.01,0.001))
+ 
+#interaction term significant
+ 
+#Model Fit test = Significant Chisq thus models are different and negative binomial stands.
+nb5bmsq <- glm.nb(salesquantity ~ 1, data = m_bmp)
+lrtest(m0_bmp_sq, nb5bmsq)
+ 
+#obtain IRRs
+stargazer(m0_bmp_sq, 
+           apply.coef = exp, t.auto=F, p.auto = F,
+           title="Regression Results", type="text", 
+           column.labels=c("Model 0 Sales Quantity Product Level IRR"),
+           df=FALSE, digits=4, star.cutoffs = c(0.05,0.01,0.001)) 
+ 
+#Marginal Plot
+meffects2q <- ggpredict(m0_bmp_sq, terms=c("policy_dummy", "time_dummy")) 
+ggplot(meffects2q,aes(x, predicted, colour=group)) + geom_line(size=1.3) + 
+    xlab("time") + ylab("Quantity") +
+   labs(colour="Policy") + 
+   scale_colour_discrete(labels=c("Same (60 days)", "Change (90 Days to 45 Days)"))+ ggtitle("Physical Store Sales Quantity") + theme(plot.title = element_text(hjust = 0.5))
+ 
+ #Check for Heteroscedasticity
+gqtest(m0_bmp_sq) #no significance
+bptest(m0_bmp_sq) #<=0.05 Significant thus we have Heteroscedasticity
+#significant
+ 
+consstder <- sqrt(diag(vcovHC(m0_bmp_sq, type="const")))  # produces normal standard errors
+HWrobstder2v <- sqrt(diag(vcovHC(m0_bmp_sq, type="HC1"))) # produces Huber-White robust standard errors 
+ #Robust error did not change interaction term
+stargazer(m0_bmp_sq, m0_bmp_sq, 
+           se=list(consstder, HWrobstder2v),
+           title="Regression Results", type="text", 
+           column.labels=c("Normal SE", "HW-Robust SE"),
+           df=FALSE, digits=2, star.cutoffs = c(0.05,0.01,0.001))
+
+#BM Return Quantity Product Level NB
+m0_bmp_rq<- glm.nb(returnquantity~policy_dummy*time_dummy+factor(product_category)+logsalesquantity+avg_female+avg_age+avg_income+avg_homeowner+avg_residency+avg_childowner+sa_gender+sa_full_time+sa_avg_years_of_exp+sa_married+sa_avg_rate_of_pay+sa_dependent+sales_volume_group+log(store_number_of_skus),data = m_bmp)
+
+stargazer(m0_bmp_rq,
+           title="Regression Results", type="text",
+           column.labels=c("Model Physical Return Quantity Product Category"),
+           df=FALSE, digits=3, star.cutoffs = c(0.05,0.01,0.001))
+ 
+#Model Fit test = Significant Chisq thus models are different and negative binomial stands.
+ nb5bmrq <- glm.nb(returnquantity ~ 1, data = m_bmp)
+ lrtest(m0_bmp_rq, nb5bmrq)
+ 
+ #interaction term significant
+ 
+#obtain IRRs
+stargazer(m0_bmp_rq,
+           apply.coef = exp, t.auto=F, p.auto = F,
+           title="Regression Results", type="text",
+           column.labels=c("Model 0 Return Quantity Product Level IRR"),
+           df=FALSE, digits=4, star.cutoffs = c(0.05,0.01,0.001))
+ 
+#Marginal Plot
+meffects2q <- ggpredict(m0_bmp_rq, terms=c("policy_dummy", "time_dummy"))
+ 
+ggplot(meffects2q,aes(x, predicted, colour=group)) + geom_line(size=1.3) +
+     xlab("time") + ylab("Quantity") +
+     labs(colour="Policy") +
+     scale_colour_discrete(labels=c("Same (60 days)", "Change (90 Days to 45 Days)"))+ ggtitle("Physical Store Sales Quantity") + theme(plot.title = element_text(hjust = 0.5))
+ 
+ #Check for Heteroscedasticity
+gqtest(m0_bmp_rq) #no significance
+bptest(m0_bmp_rq) #<=0.05 Significant thus we have Heteroscedasticity
+#significant
+ 
+consstder <- sqrt(diag(vcovHC(m0_bmp_rq, type="const")))  # produces normal standard errors
+HWrobstder2v <- sqrt(diag(vcovHC(m0_bmp_rq, type="HC1"))) # produces Huber-White robust standard errors
+ 
+#Robust error did not change interaction term
+stargazer(m0_bmp_rq, m0_bmp_rq,
+           se=list(consstder, HWrobstder2v),
+           title="Regression Results", type="text",
+           column.labels=c("Normal SE", "HW-Robust SE"),
+           df=FALSE, digits=2, star.cutoffs = c(0.05,0.01,0.001))
+
+
+
+```
+
+```{r Q5 BM Marginal Plots}
+#Marginal Plots
+#BM Sales Value
+meffects5bmsv <- ggpredict(m0_bmp_sv, terms=c("policy_dummy", "time_dummy")) 
+
+ggplot(meffects5bmsv,aes(x, predicted, colour=group)) + geom_line(size=1.3) + 
+    xlab("time") + ylab("$") +
+    labs(colour="Policy") + 
+    scale_colour_discrete(labels=c("Same (60 days)", "Change (90 Days to 45 Days)")) + ggtitle("Physical Store Sales Value Product Level") + theme(plot.title = element_text(hjust = 0.5))+ scale_x_continuous(breaks=c(0,1))
+
+#BM Return Value
+meffects5bmrv <- ggpredict(m0_bmp_rv, terms=c("policy_dummy", "time_dummy")) 
+
+ggplot(meffects5bmrv,aes(x, predicted, colour=group)) + geom_line(size=1.3) + 
+    xlab("time") + ylab("$") +
+    labs(colour="Policy") + 
+    scale_colour_discrete(labels=c("Same (60 days)", "Change (90 Days to 45 Days)")) + ggtitle("Physical Store Return Value Product Level") + theme(plot.title = element_text(hjust = 0.5))+ scale_x_continuous(breaks=c(0,1))
+
+#BM Sales Quantity
+meffects5bmsq <- ggpredict(m0_bmp_sq, terms=c("policy_dummy", "time_dummy")) 
+
+ggplot(meffects5bmsq,aes(x, predicted, colour=group)) + geom_line(size=1.3) + 
+    xlab("time") + ylab("Quantity") +
+    labs(colour="Policy") + 
+    scale_colour_discrete(labels=c("Same (60 days)", "Change (90 Days to 45 Days)")) + ggtitle("Physical Store Sales Quantity Product Level") + theme(plot.title = element_text(hjust = 0.5)) + scale_x_continuous(breaks=c(0,1))
+
+#BM Return Quantity
+meffects5bmrq <- ggpredict(m0_bmp_rq, terms=c("policy_dummy", "time_dummy")) 
+
+ggplot(meffects5bmrq,aes(x, predicted, colour=group)) + geom_line(size=1.3) + 
+    xlab("time") + ylab("Quantity") +
+    labs(colour="Policy") + 
+    scale_colour_discrete(labels=c("Same (60 days)", "Change (90 Days to 45 Days)")) + ggtitle("Physical Store Return Quantity Product Level") + theme(plot.title = element_text(hjust = 0.5)) + scale_x_continuous(breaks=c(0,1))
+
+```
+
+```{r Q6 OL Models}
+#Question 6: How does the impact of the policy change vary across product categories?
+
+#OL Sales Value
+m0_olp_svp = lm(log(salesvalue+1)~policy_dummy*time_dummy*factor(product_category)+avg_female+avg_age+avg_income+avg_homeowner+avg_residency+avg_childowner, data = m_olp)
+
+stargazer(m0_olp_svp,
+          title="Regression Results", type="text", 
+          column.labels=c("Model OL Sales Vale Product Category triple interaction"),
+          df=FALSE, digits=3, star.cutoffs = c(0.05,0.01,0.001))
+
+#OL Return Value
+m0_olp_rvp = lm(log(returnvalue+1)~policy_dummy*time_dummy*factor(product_category)+logsalesvalue+avg_female+avg_age+avg_income+avg_homeowner+avg_residency+avg_childowner, data = m_olp)
+
+stargazer(m0_olp_rvp,
+          title="Regression Results", type="text", 
+          column.labels=c("Model OL Return Vale Product Category triple interaction"),
+          df=FALSE, digits=3, star.cutoffs = c(0.05,0.01,0.001))
+
+#OL Sales Quantity NB
+m0_olp_sqp<- glm.nb(salesquantity~policy_dummy*time_dummy*factor(product_category)+avg_female+avg_age+avg_income+avg_homeowner+avg_residency+avg_childowner, data = m_olp)
+
+stargazer(m0_olp_sqp,
+          title="Regression Results", type="text", 
+          column.labels=c("Model OL Sales Quantity Product Category triple interaction"),
+          df=FALSE, digits=3, star.cutoffs = c(0.05,0.01,0.001))
+
+#OL Return Quantity NB
+m0_olp_rqp<- glm.nb(returnquantity~policy_dummy*time_dummy*factor(product_category)+logsalesquantity+avg_female+avg_age+avg_income+avg_homeowner+avg_residency+avg_childowner, data = m_olp)
+
+stargazer(m0_olp_rqp,
+          title="Regression Results", type="text", 
+          column.labels=c("Model OL Return Quantity Product Category triple interaction"),
+          df=FALSE, digits=3, star.cutoffs = c(0.05,0.01,0.001))
+```
+
+```{r Q6 BM Models}
+#BM Sales Value
+m0_bmp_svp <- lm((log(salesvalue+1))~policy_dummy*time_dummy*factor(product_category)+avg_female+avg_age+avg_income+avg_homeowner+avg_residency+avg_childowner+sa_gender+sa_full_time+sa_avg_years_of_exp+sa_married+sa_avg_rate_of_pay+sa_dependent+sales_volume_group+log(store_number_of_skus) ,data = m_bmp)
+
+stargazer(m0_bmp_svp,
+          title="Regression Results", type="text", 
+          column.labels=c("Model Physical Store Sales Value Product Level triple interaction"),
+          df=FALSE, digits=3, star.cutoffs = c(0.05,0.01,0.001))
+
+#BM Return Value
+m0_bmp_rvp <- lm((log(returnvalue+1))~policy_dummy*time_dummy*factor(product_category)+logsalesvalue+avg_female+avg_age+avg_income+avg_homeowner+avg_residency+avg_childowner+sa_gender+sa_full_time+sa_avg_years_of_exp+sa_married+sa_avg_rate_of_pay+sa_dependent+sales_volume_group+log(store_number_of_skus) ,data = m_bmp)
+
+stargazer(m0_bmp_rvp,
+          title="Regression Results", type="text", 
+          column.labels=c("Model Physical Store Return Value Product Level triple interaction"),
+          df=FALSE, digits=3, star.cutoffs = c(0.05,0.01,0.001))
+
+#BM Sales Quantity
+m0_bmp_sqp<- glm.nb(salesquantity~policy_dummy*time_dummy*factor(product_category)+avg_female+avg_age+avg_income+avg_homeowner+avg_residency+avg_childowner+sa_gender+sa_full_time+sa_avg_years_of_exp+sa_married+sa_avg_rate_of_pay+sa_dependent+sales_volume_group+log(store_number_of_skus) ,data = m_bmp)
+
+stargazer(m0_bmp_sqp,
+          title="Regression Results", type="text", 
+          column.labels=c("Model Physical Sales Quantity Product Category triple interaction"),
+          df=FALSE, digits=3, star.cutoffs = c(0.05,0.01,0.001))
+
+#BM Return Quantity
+m0_bmp_rqp<- glm.nb(returnquantity~policy_dummy*time_dummy*factor(product_category)+logsalesquantity+avg_female+avg_age+avg_income+avg_homeowner+avg_residency+avg_childowner+sa_gender+sa_full_time+sa_avg_years_of_exp+sa_married+sa_avg_rate_of_pay+sa_dependent+sales_volume_group+log(store_number_of_skus) ,data = m_bmp)
+
+stargazer(m0_bmp_rqp,
+          title="Regression Results", type="text", 
+          column.labels=c("Model Physical Return Quantity Product Category triple interaction"),
+          df=FALSE, digits=3, star.cutoffs = c(0.05,0.01,0.001))
+```
+
+```{r Q6 Marginal Plots(19 Cat) * 8}
+#Online Store Sales Value Product catagories
+meffectsolsvpc<- ggpredict(m0_olp_svp, terms=c("time_dummy", "policy_dummy","product_category")) 
+ggplot(meffectsolsvpc,aes(x, predicted, colour=group)) + geom_line(size=1.3) + 
+    xlab("time") + ylab("$") +
+    labs(colour="Policy") + 
+    scale_colour_discrete(labels=c("Same (60 days)", "Change (90 Days to 45 Days)")) + ggtitle("Online Store Sales Value Product catagories") + theme(plot.title = element_text(hjust = 0.5))+ scale_x_continuous(breaks=c(0,1)) +  facet_wrap(~facet) + scale_y_continuous(limits = c(0, 10000))
+  
+#Online Store Sales Quantity Product catagories
+meffectsolsqpc<- ggpredict(m0_olp_sqp, terms=c("time_dummy", "policy_dummy","product_category")) 
+ggplot(meffectsolsqpc, aes(x, predicted, colour=group)) + geom_line(size=1.3) + 
+    xlab("time") + ylab("$") +
+    labs(colour="Policy") + 
+    scale_colour_discrete(labels=c("Same (60 days)", "Change (90 Days to 45 Days)")) + ggtitle("Online Store Sales Quantity Product catagories") + theme(plot.title = element_text(hjust = 0.5))+ scale_x_continuous(breaks=c(0,1)) +  facet_wrap(~facet) 
+  
+#Online Store Return Value Product catagories
+meffectsolrvpc<- ggpredict(m0_olp_rvp, terms=c("time_dummy", "policy_dummy","product_category")) 
+ggplot(meffectsolrvpc,aes(x, predicted, colour=group)) + geom_line(size=1.3) + 
+    xlab("time") + ylab("$") +
+    labs(colour="Policy") + 
+    scale_colour_discrete(labels=c("Same (60 days)", "Change (90 Days to 45 Days)")) + ggtitle("Online Store Return Value Product catagories") + theme(plot.title = element_text(hjust = 0.5))+ scale_x_continuous(breaks=c(0,1)) +  facet_wrap(~facet) 
+  
+#Online Store Return Quantity Product catagories
+# meffectsolrqpc<- ggpredict(m0_olp_rqp, terms=c("time_dummy", "policy_dummy","product_category")) 
+# ggplot(meffectsolrqpc,aes(x, predicted, colour=group)) + geom_line(size=1.3) + 
+#     xlab("time") + ylab("$") +
+#     labs(colour="Policy") + 
+#     scale_colour_discrete(labels=c("Same (60 days)", "Change (90 Days to 45 Days)")) + ggtitle("Online Store Return Quantity Product catagories") + theme(plot.title = element_text(hjust = 0.5))+ scale_x_continuous(breaks=c(0,1)) +  facet_wrap(~facet)
+  
+#Phycial Store Sales Value Product catagories
+  
+meffectsbmsvpc<- ggpredict(m0_bmp_svp, terms=c("time_dummy", "policy_dummy","product_category")) 
+ggplot(meffectsbmsvpc,aes(x, predicted, colour=group)) + geom_line(size=1.3) + 
+    xlab("time") + ylab("$") +
+    labs(colour="Policy") + 
+    scale_colour_discrete(labels=c("Same (60 days)", "Change (90 Days to 45 Days)")) + ggtitle("Phycial Store Sales Value Product catagories") + theme(plot.title = element_text(hjust = 0.5))+ scale_x_continuous(breaks=c(0,1)) +  facet_wrap(~facet) + scale_y_continuous(limits = c(0, 10000))
+  
+#Phycial Store Sales Quantity Product catagories
+  
+meffectsbmsqpc<- ggpredict(m0_bmp_sqp, terms=c("time_dummy", "policy_dummy","product_category")) 
+ggplot(meffectsbmsqpc,aes(x, predicted, colour=group)) + geom_line(size=1.3) + 
+    xlab("time") + ylab("$") +
+    labs(colour="Policy") + 
+    scale_colour_discrete(labels=c("Same (60 days)", "Change (90 Days to 45 Days)")) + ggtitle("Phycial Store Sales Quantity Product catagories") + theme(plot.title = element_text(hjust = 0.5))+ scale_x_continuous(breaks=c(0,1)) +  facet_wrap(~facet) 
+  
+#Phycial Store Return Value Product catagories
+meffectsbmrvpc<- ggpredict(m0_bmp_rvp, terms=c("time_dummy", "policy_dummy","product_category")) 
+ggplot(meffectsbmrvpc,aes(x, predicted, colour=group)) + geom_line(size=1.3) + 
+    xlab("time") + ylab("$") +
+    labs(colour="Policy") + 
+    scale_colour_discrete(labels=c("Same (60 days)", "Change (90 Days to 45 Days)")) + ggtitle("Phycial Store Return Value Product catagories") + theme(plot.title = element_text(hjust = 0.5))+ scale_x_continuous(breaks=c(0,1)) +  facet_wrap(~facet) 
+
+#Phycial Store Return Quantity Product catagories
+meffectsbmrqpc<- ggpredict(m0_bmp_rqp, terms=c("time_dummy", "policy_dummy","product_category")) 
+ggplot(meffectsbmrqpc,aes(x, predicted, colour=group)) + geom_line(size=1.3) + 
+    xlab("time") + ylab("$") +
+    labs(colour="Policy") + 
+    scale_colour_discrete(labels=c("Same (60 days)", "Change (90 Days to 45 Days)")) + ggtitle("Phycial Store Return Quantity Product catagories") + theme(plot.title = element_text(hjust = 0.5))+ scale_x_continuous(breaks=c(0,1)) +  facet_wrap(~facet) 
+```
+
+```{r Q6 For loop example}
+olp_pmatrix = matrix(nrow = 19, ncol = 7)
+for(i in 1:19){
+  #a = olp_predict$predicted[i+19*2]
+  olp_pmatrix[i,1] = olp_predict$predicted[i]
+  olp_pmatrix[i,2] = olp_predict$predicted[i+19*2]
+  olp_pmatrix[i,3] = olp_pmatrix[i,2]-olp_pmatrix[i,1]
+  olp_pmatrix[i,4] = olp_predict$predicted[i+19*1]
+  olp_pmatrix[i,5] = olp_predict$predicted[i+19*3]
+  olp_pmatrix[i,6] = olp_pmatrix[i,5]-olp_pmatrix[i,4]
+  olp_pmatrix[i,7] = olp_pmatrix[i,6]-olp_pmatrix[i,3]
+}
+```
+
+```{r Q6 Subset OL Models}
+#online sales value
+olsv_matrix = matrix(nrow = 21, ncol = 3)
+lp=c(1:17,20,21)
+for(i in lp){
+  tempdata <- subset(m_olp,product_category==i)
+  mpc_ol_sv <- lm(logsalesvalue~policy_dummy*time_dummy+avg_female+avg_age+avg_income+avg_homeowner+avg_residency+avg_childowner,data = tempdata)
+  ttl=paste(c("Model-OL-SV-",i), collapse = " ")
+  #stargazer(mpc_ol_sv, 
+  #        title="Regression Results", type="text", 
+  #        column.labels=c(ttl),
+  #        df=FALSE, digits=4, star.cutoffs = c(0.05,0.01,0.001))
+  
+  #Check for Heteroscedasticity
+  gq=gqtest(mpc_ol_sv)
+  bp=bptest(mpc_ol_sv)
+  if(gq$p.value<0.05|bp$p.value<0.05){
+      consstder <- sqrt(diag(vcovHC(mpc_ol_sv, type="const")))  
+      HWrobstder <- sqrt(diag(vcovHC(mpc_ol_sv, type="HC1"))) 
+
+  stargazer(mpc_ol_sv, mpc_ol_sv, 
+            se=list(consstder, HWrobstder),
+            title=ttl, type="text", 
+            column.labels=c("Normal SE", "HW-Robust SE"),
+            df=FALSE, digits=2, star.cutoffs = c(0.05,0.01,0.001))
+  }
+
+  intera=mpc_ol_sv$coefficients[10]
+  print(intera)
+  if(is.na(intera)==FALSE){
+    pv=summary(mpc_ol_sv)$coefficients[10,4]
+  }else{
+    pv=NA
+  }
+  print(pv)
+  olsv_matrix[i,1] = intera
+  olsv_matrix[i,2] = pv
+  olsv_matrix[i,3] = pv<0.05
+}
+ print(olsv_matrix)
+ #PC-7 significant
+ 
+#online sales quantity
+olsq_matrix = matrix(nrow = 21, ncol = 3)
+lp=c(1:17,20,21)
+for(i in lp){
+  tempdata <- subset(m_olp,product_category==i)
+  mpc_ol_sq <- glm.nb(salesquantity~policy_dummy*time_dummy+avg_female+avg_age+avg_income+avg_homeowner+avg_residency+avg_childowner, data = tempdata)
+  ttl=paste(c("Model-OL-SQ-",i), collapse = " ")
+  #stargazer(mpc_ol_sq, 
+  #        title="Regression Results", type="text", 
+  #        column.labels=c(ttl),
+  #        df=FALSE, digits=4, star.cutoffs = c(0.05,0.01,0.001))
+  
+  #Check for Heteroscedasticity
+  gq=gqtest(mpc_ol_sq)
+  bp=bptest(mpc_ol_sq)
+  if(gq$p.value<0.05|bp$p.value<0.05){
+      consstder <- sqrt(diag(vcovHC(mpc_ol_sq, type="const")))  
+      HWrobstder <- sqrt(diag(vcovHC(mpc_ol_sq, type="HC1"))) 
+
+  stargazer(mpc_ol_sq, mpc_ol_sq, 
+            se=list(consstder, HWrobstder),
+            title=ttl, type="text", 
+            column.labels=c("Normal SE", "HW-Robust SE"),
+            df=FALSE, digits=2, star.cutoffs = c(0.05,0.01,0.001))
+  }
+  intera=mpc_ol_sq$coefficients[10]
+  print(intera)
+  if(is.na(intera)==FALSE){
+    pv=summary(mpc_ol_sq)$coefficients[10,4]
+  }else{
+    pv=NA
+  }
+  print(pv)
+  olsq_matrix[i,1] = intera
+  olsq_matrix[i,2] = pv
+  olsq_matrix[i,3] = pv<0.05
+}
+ print(olsq_matrix)
+ #PC-7, 17 significant
+
+ #online return value
+olrv_matrix = matrix(nrow = 21, ncol = 3)
+lp=c(1:17,20,21)
+for(i in lp){
+  tempdata <- subset(m_olp,product_category==i)
+  mpc_ol_rv <- lm(log(returnvalue+1)~policy_dummy*time_dummy+logsalesvalue+avg_female+avg_age+avg_income+avg_homeowner+avg_residency+avg_childowner,data = tempdata)
+  ttl=paste(c("Model-OL-RV-",i), collapse = " ")
+  #stargazer(mpc_ol_rv, 
+  #        title="Regression Results", type="text", 
+  #        column.labels=c(ttl),
+  #        df=FALSE, digits=4, star.cutoffs = c(0.05,0.01,0.001))
+  
+  #Check for Heteroscedasticity
+  gq=gqtest(mpc_ol_rv)
+  bp=bptest(mpc_ol_rv)
+  if(gq$p.value<0.05|bp$p.value<0.05){
+      consstder <- sqrt(diag(vcovHC(mpc_ol_rv, type="const")))  
+      HWrobstder <- sqrt(diag(vcovHC(mpc_ol_rv, type="HC1"))) 
+
+  stargazer(mpc_ol_rv, mpc_ol_rv, 
+            se=list(consstder, HWrobstder),
+            title=ttl, type="text", 
+            column.labels=c("Normal SE", "HW-Robust SE"),
+            df=FALSE, digits=2, star.cutoffs = c(0.05,0.01,0.001))
+  }
+  
+  intera=mpc_ol_rv$coefficients[11]
+  print(intera)
+  if(is.na(intera)==FALSE){
+    pv=summary(mpc_ol_rv)$coefficients[11,4]
+  }else{
+    pv=NA
+  }
+  print(pv)
+  olrv_matrix[i,1] = intera
+  olrv_matrix[i,2] = pv
+  olrv_matrix[i,3] = pv<0.05
+}
+ print(olrv_matrix)
+ #PC-5 significant
+ 
+ 
+ #online return quantity
+olrq_matrix = matrix(nrow = 21, ncol = 3)
+lp=c(1:17,20,21)
+for(i in lp){
+  tempdata <- subset(m_olp,product_category==i)
+  mpc_ol_rq <- glm.nb(returnquantity~policy_dummy*time_dummy+logsalesquantity+avg_female+avg_age+avg_income+avg_homeowner+avg_residency+avg_childowner, data = tempdata)
+  ttl=paste(c("Model-OL-RQ-",i), collapse = " ")
+  #stargazer(mpc_ol_rq, 
+  #        title="Regression Results", type="text", 
+  #        column.labels=c(ttl),
+  #        df=FALSE, digits=4, star.cutoffs = c(0.05,0.01,0.001))
+  
+  #Check for Heteroscedasticity
+  gq=gqtest(mpc_ol_rq)
+  bp=bptest(mpc_ol_rq)
+  if(gq$p.value<0.05|bp$p.value<0.05){
+      consstder <- sqrt(diag(vcovHC(mpc_ol_rq, type="const")))  
+      HWrobstder <- sqrt(diag(vcovHC(mpc_ol_rq, type="HC1"))) 
+
+  stargazer(mpc_ol_rq, mpc_ol_rq, 
+            se=list(consstder, HWrobstder),
+            title=ttl, type="text", 
+            column.labels=c("Normal SE", "HW-Robust SE"),
+            df=FALSE, digits=2, star.cutoffs = c(0.05,0.01,0.001))
+  }
+  
+  intera=mpc_ol_rq$coefficients[11]
+  print(intera)
+  if(is.na(intera)==FALSE){
+    pv=summary(mpc_ol_rq)$coefficients[11,4]
+  }else{
+    pv=NA
+  }
+  print(pv)
+  olrq_matrix[i,1] = intera
+  olrq_matrix[i,2] = pv
+  olrq_matrix[i,3] = pv<0.05
+}
+ print(olrq_matrix)
+ #PC- 4,5,12 significant
+ 
+```
+
+```{r Q6 Subset BM Models}
+#bm sales value
+bmsv_matrix = matrix(nrow = 21, ncol = 3)
+lp=c(1:17,20,21)
+for(i in lp){
+  tempdata <- subset(m_bmp,product_category==i)
+  mpc_bm_sv <- lm(logsalesvalue~policy_dummy*time_dummy+avg_female+avg_age+avg_income+avg_homeowner+avg_residency+avg_childowner+sa_gender+sa_full_time+sa_avg_years_of_exp+sa_married+sa_avg_rate_of_pay+sa_dependent+sales_volume_group+logstore_number_of_skus,data = tempdata)
+  ttl=paste(c("Model-BM-SV-",i), collapse = " ")
+  #stargazer(mpc_bm_sv, 
+  #        title="Regression Results", type="text", 
+  #        column.labels=c(ttl),
+  #        df=FALSE, digits=4, star.cutoffs = c(0.05,0.01,0.001))
+  
+  #Check for Heteroscedasticity
+  gq=gqtest(mpc_bm_sv)
+  bp=bptest(mpc_bm_sv)
+  if(gq$p.value<0.05|bp$p.value<0.05){
+      consstder <- sqrt(diag(vcovHC(mpc_bm_sv, type="const")))  
+      HWrobstder <- sqrt(diag(vcovHC(mpc_bm_sv, type="HC1"))) 
+
+  stargazer(mpc_bm_sv, mpc_bm_sv, 
+            se=list(consstder, HWrobstder),
+            title=ttl, type="text", 
+            column.labels=c("Normal SE", "HW-Robust SE"),
+            df=FALSE, digits=2, star.cutoffs = c(0.05,0.01,0.001))
+  }
+  
+  intera=mpc_bm_sv$coefficients[10]
+  print(intera)
+  if(is.na(intera)==FALSE){
+    pv=summary(mpc_bm_sv)$coefficients[10,4]
+  }else{
+    pv=NA
+  }
+  print(pv)
+  bmsv_matrix[i,1] = intera
+  bmsv_matrix[i,2] = pv
+  bmsv_matrix[i,3] = pv<0.05
+}
+ print(bmsv_matrix)
+ #PC-  significant
+
+ 
+ #bm sales quantity
+bmsq_matrix = matrix(nrow = 21, ncol = 3)
+lp=c(1:17,20,21)
+for(i in lp){
+  tempdata <- subset(m_bmp,product_category==i)
+  mpc_bm_sq <- glm.nb(salesquantity~policy_dummy*time_dummy+avg_female+avg_age+avg_income+avg_homeowner+avg_residency+avg_childowner+sa_gender+sa_full_time+sa_avg_years_of_exp+sa_married+sa_avg_rate_of_pay+sa_dependent+sales_volume_group+logstore_number_of_skus ,data = tempdata)
+  ttl=paste(c("Model-BM-SQ-",i), collapse = " ")
+  #stargazer(mpc_bm_sq, 
+  #        title="Regression Results", type="text", 
+  #        column.labels=c(ttl),
+  #        df=FALSE, digits=4, star.cutoffs = c(0.05,0.01,0.001))
+  
+  #Check for Heteroscedasticity
+  gq=gqtest(mpc_bm_sq)
+  bp=bptest(mpc_bm_sq)
+  if(gq$p.value<0.05|bp$p.value<0.05){
+      consstder <- sqrt(diag(vcovHC(mpc_bm_sq, type="const")))  
+      HWrobstder <- sqrt(diag(vcovHC(mpc_bm_sq, type="HC1"))) 
+
+  stargazer(mpc_bm_sq, mpc_bm_sq, 
+            se=list(consstder, HWrobstder),
+            title=ttl, type="text", 
+            column.labels=c("Normal SE", "HW-Robust SE"),
+            df=FALSE, digits=2, star.cutoffs = c(0.05,0.01,0.001))
+  }
+  
+  intera=mpc_bm_sq$coefficients[10]
+  print(intera)
+  if(is.na(intera)==FALSE){
+    pv=summary(mpc_bm_sq)$coefficients[10,4]
+  }else{
+    pv=NA
+  }
+  print(pv)
+  bmsq_matrix[i,1] = intera
+  bmsq_matrix[i,2] = pv
+  bmsq_matrix[i,3] = pv<0.05
+}
+ print(bmsq_matrix)
+ #PC-1,3,5,12,13,14,21  significant
+ 
+ #bm return value
+bmrv_matrix = matrix(nrow = 21, ncol = 3)
+lp=c(1:17,20,21)
+for(i in lp){
+  tempdata <- subset(m_bmp,product_category==i)
+  mpc_bm_rv <- lm((log(returnvalue+1))~policy_dummy*time_dummy+logsalesvalue+avg_female+avg_age+avg_income+avg_homeowner+avg_residency+avg_childowner+sa_gender+sa_full_time+sa_avg_years_of_exp+sa_married+sa_avg_rate_of_pay+sa_dependent+sales_volume_group+logstore_number_of_skus,data = tempdata)
+  ttl=paste(c("Model-BM-RV-",i), collapse = " ")
+  #stargazer(mpc_bm_rv, 
+  #        title="Regression Results", type="text", 
+  #        column.labels=c(ttl),
+  #        df=FALSE, digits=4, star.cutoffs = c(0.05,0.01,0.001))
+  
+  #Check for Heteroscedasticity
+  gq=gqtest(mpc_bm_rv)
+  bp=bptest(mpc_bm_rv)
+  if(gq$p.value<0.05|bp$p.value<0.05){
+      consstder <- sqrt(diag(vcovHC(mpc_bm_rv, type="const")))  
+      HWrobstder <- sqrt(diag(vcovHC(mpc_bm_rv, type="HC1"))) 
+
+  stargazer(mpc_bm_rv, mpc_bm_rv, 
+            se=list(consstder, HWrobstder),
+            title=ttl, type="text", 
+            column.labels=c("Normal SE", "HW-Robust SE"),
+            df=FALSE, digits=2, star.cutoffs = c(0.05,0.01,0.001))
+  }
+  
+  intera=mpc_bm_rv$coefficients[10]
+  print(intera)
+  if(is.na(intera)==FALSE){
+    pv=summary(mpc_bm_rv)$coefficients[10,4]
+  }else{
+    pv=NA
+  }
+  print(pv)
+  bmrv_matrix[i,1] = intera
+  bmrv_matrix[i,2] = pv
+  bmrv_matrix[i,3] = pv<0.05
+}
+ print(bmrv_matrix)
+ #PC- 2,6,14  significant
+
+ 
+#bm return quantity
+bmrq_matrix = matrix(nrow = 21, ncol = 3)
+lp=c(1:17,20,21)
+for(i in lp){
+  tempdata <- subset(m_bmp,product_category==i)
+  mpc_bm_rq <- glm.nb(returnquantity~policy_dummy*time_dummy+logsalesquantity+avg_female+avg_age+avg_income+avg_homeowner+avg_residency+avg_childowner+sa_gender+sa_full_time+sa_avg_years_of_exp+sa_married+sa_avg_rate_of_pay+sa_dependent+sales_volume_group+logstore_number_of_skus  ,data = tempdata)
+  ttl=paste(c("Model-BM-RQ-",i), collapse = " ")
+  #stargazer(mpc_bm_rq, 
+  #        title="Regression Results", type="text", 
+  #        column.labels=c(ttl),
+  #        df=FALSE, digits=4, star.cutoffs = c(0.05,0.01,0.001))
+  
+  #Check for Heteroscedasticity
+  gq=gqtest(mpc_bm_rq)
+  bp=bptest(mpc_bm_rq)
+  if(gq$p.value<0.05|bp$p.value<0.05){
+      consstder <- sqrt(diag(vcovHC(mpc_bm_rq, type="const")))  
+      HWrobstder <- sqrt(diag(vcovHC(mpc_bm_rq, type="HC1"))) 
+
+  stargazer(mpc_bm_rq, mpc_bm_rq, 
+            se=list(consstder, HWrobstder),
+            title=ttl, type="text", 
+            column.labels=c("Normal SE", "HW-Robust SE"),
+            df=FALSE, digits=2, star.cutoffs = c(0.05,0.01,0.001))
+  }
+  
+  intera=mpc_bm_rq$coefficients[10]
+  print(intera)
+  if(is.na(intera)==FALSE){
+    pv=summary(mpc_bm_rq)$coefficients[10,4]
+  }else{
+    pv=NA
+  }
+  print(pv)
+  bmrq_matrix[i,1] = intera
+  bmrq_matrix[i,2] = pv
+  bmrq_matrix[i,3] = pv<0.05
+}
+ print(bmrq_matrix)
+ #PC- 5,6,21  significant
+ 
+ olmatr=cbind(olsv_matrix,olsq_matrix,olrv_matrix,olrq_matrix)
+ print(olmatr)
+ bmmatr=cbind(bmsv_matrix,bmsq_matrix,bmrv_matrix,bmrq_matrix)
+ print(bmmatr)
+ 
+```
+
+
